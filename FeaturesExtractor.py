@@ -4,7 +4,7 @@ Created on Nov 7, 2013
 @author: ASALLAB
 '''
 from xml.dom import minidom
-from LanguageModel.LanguageModel import *
+from languagemodel.LanguageModel import *
 import pickle
 import numpy
 import math
