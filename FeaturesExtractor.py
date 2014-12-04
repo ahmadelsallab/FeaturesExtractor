@@ -135,29 +135,30 @@ class FeaturesExtractor(object):
                     # Check if the language model term is composed of many synonyms, then search for ANY (OR) of them, not all
                     termsSynonyms = languageModelTerm.split()#term.split(sep=None, maxsplit=_1)--> split with whitespaces
                     for term in termsSynonyms:
-                        if term in terms:
-                            if(self.libSVMFormat == 'true'):                            
-                                if self.featureFormat != 'Binary':
-                                    itemFeatures[self.featuresNamesMap[languageModelTerm]] = self.languageModel.languageModel[languageModelTerm]['existWeight']
+                        for textTerm in terms:                            
+                            if term in textTerm:
+                                if(self.libSVMFormat == 'true'):                            
+                                    if self.featureFormat != 'Binary':
+                                        itemFeatures[self.featuresNamesMap[languageModelTerm]] = self.languageModel.languageModel[languageModelTerm]['existWeight']
+                                    else:
+                                        itemFeatures[self.featuresNamesMap[languageModelTerm]] = 1
                                 else:
-                                    itemFeatures[self.featuresNamesMap[languageModelTerm]] = 1
+                                    if self.featureFormat != 'Binary':
+                                        itemFeatures[languageModelTerm] = self.languageModel.languageModel[languageModelTerm]['existWeight']
+                                    else:
+                                        itemFeatures[languageModelTerm] = 1
+                                break
                             else:
-                                if self.featureFormat != 'Binary':
-                                    itemFeatures[languageModelTerm] = self.languageModel.languageModel[languageModelTerm]['existWeight']
+                                if(self.libSVMFormat == 'true'):                            
+                                    if self.featureFormat != 'Binary':
+                                        itemFeatures[self.featuresNamesMap[languageModelTerm]] = self.languageModel.languageModel[languageModelTerm]['nonExistWeight']
+                                    else:
+                                        itemFeatures[self.featuresNamesMap[languageModelTerm]] = 1
                                 else:
-                                    itemFeatures[languageModelTerm] = 1
-                            break
-                        else:
-                            if(self.libSVMFormat == 'true'):                            
-                                if self.featureFormat != 'Binary':
-                                    itemFeatures[self.featuresNamesMap[languageModelTerm]] = self.languageModel.languageModel[languageModelTerm]['nonExistWeight']
-                                else:
-                                    itemFeatures[self.featuresNamesMap[languageModelTerm]] = 1
-                            else:
-                                if self.featureFormat != 'Binary':
-                                    itemFeatures[languageModelTerm] = -1*self.languageModel.languageModel[languageModelTerm]['nonExistWeight']
-                                else:
-                                    itemFeatures[languageModelTerm] = -1                                
+                                    if self.featureFormat != 'Binary':
+                                        itemFeatures[languageModelTerm] = -1*self.languageModel.languageModel[languageModelTerm]['nonExistWeight']
+                                    else:
+                                        itemFeatures[languageModelTerm] = -1                                
                                                  
 
           
