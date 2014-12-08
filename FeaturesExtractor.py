@@ -80,6 +80,11 @@ class FeaturesExtractor(object):
                 featureIdx += 1
                 self.featuresNamesMap['isLinkRelevant'] = featureIdx
                 featureIdx += 1
+            if(self.considerCollectiveSentimentFeatures == "true"):
+                self.featuresNamesMap['positive'] = featureIdx
+                featureIdx += 1
+                self.featuresNamesMap['negative'] = featureIdx
+                featureIdx += 1
             if(self.considerNumbersFeatures == "true"):
                 self.featuresNamesMap['isNumberExists'] = featureIdx
                 featureIdx += 1
@@ -239,11 +244,34 @@ class FeaturesExtractor(object):
                 if(itemFeatures.__len__() != 0) :   
                     # Normalize the feature
                     maxValue = max(itemFeatures.values())
+                    if (self.considerCollectiveSentimentFeatures == "true"):
+                        if(self.libSVMFormat):
+                            itemFeatures[self.featuresNamesMap['positive']] = 0
+                            itemFeatures[self.featuresNamesMap['negative']] = 0
+                        else:
+                            itemFeatures['positive'] = 0
+                            itemFeatures['negative'] = 0
+                            
                     for term in itemFeatures:
                         if self.featureFormat == 'Normal':                            
                             if maxValue != 0:
                                 itemFeatures[term] /= maxValue
-
+                        if (self.considerCollectiveSentimentFeatures == "true"):
+                            if(self.libSVMFormat == "true"):
+                                if(itemFeatures[term] > 0):                            
+                                    #features['positive'] = features['positive'] + itemFeatures[term]
+                                    itemFeatures[self.featuresNamesMap['positive']] += itemFeatures[term]
+                                elif (itemFeatures[term] < 0):
+                                    #features['negative'] = features['negative'] + itemFeatures[term]
+                                    itemFeatures[self.featuresNamesMap['negative']] += itemFeatures[term]
+                            else:
+                                if(itemFeatures[term] > 0):                            
+                                   #features['positive'] = features['positive'] + itemFeatures[term]
+                                   itemFeatures['positive'] += itemFeatures[term]
+                                elif (itemFeatures[term] < 0):
+                                   #features['negative'] = features['negative'] + itemFeatures[term]
+                                   itemFeatures['negative'] += itemFeatures[term]
+                               
                     # Add to the global features list
                     self.features.append(itemFeatures)
                     
@@ -1178,6 +1206,9 @@ class FeaturesExtractor(object):
         # Get the considerNumbersFeatures flag
         self.considerNumbersFeatures = xmldoc.getElementsByTagName('ConsiderNumbersFeatures')[0].attributes['considerNumbersFeatures'].value
         
+        # Get the considerCollectiveSentimentFeatures flag
+        self.considerCollectiveSentimentFeatures = xmldoc.getElementsByTagName('ConsiderCollectiveSentimentFeatures')[0].attributes['considerCollectiveSentimentFeatures'].value
+        
         # Get the parseLinkBody flag
         self.parseLinkBody = xmldoc.getElementsByTagName('ParseLinkBody')[0].attributes['parseLinkBody'].value
 
@@ -1186,7 +1217,6 @@ class FeaturesExtractor(object):
 
         # Get the ExportMode
         self.featureFormat = xmldoc.getElementsByTagName('FeatureFormat')[0].attributes['featureFormat'].value
-        
         # Get the Label
         labelIdx = 1
         if(self.libSVMFormat == 'true'):
