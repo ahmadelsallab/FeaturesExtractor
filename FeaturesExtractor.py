@@ -260,6 +260,174 @@ class FeaturesExtractor(object):
                     else:
                         self.labels.append(item['label'])
     
+    def ExtractCollectiveLexiconFeatures(self):
+        
+        # Loop on the dataset items
+        for item in self.dataSet:
+            if(not (item['text'] is None) and not(item['label'] is None)):
+                # Initialize the items dictionary. It's sparse dictionary, with only words in the language model that exist in the item.
+                itemFeatures = {}
+                
+                # Initialize the features vector                
+                for term in self.languageModel.languageModel:
+                    if(self.libSVMFormat == 'true'):
+                        itemFeatures[self.featuresNamesMap[term]] = 0
+                    else:
+                        itemFeatures[term] = 0
+                
+                # Get the text of the item body
+                text = item['text']
+                
+                # Parse the link pattern
+                urls = re.findall(r'(https?:[//]?[^\s]+)', item['text'])
+                
+                for url in urls:
+                    if len(url) > 0:
+                        if(self.parseLinkBody == "true"):
+                            linkText = self.languageModel.ExtractLinkText(url)
+                            if(linkText != ''):
+                                text += linkText
+                    
+                # Form the list of language model terms
+                terms = self.languageModel.SplitIntoTerms(text)
+                
+                # Extract lexicon terms from text
+                # Special case for lexicon is to traverse the language model and not the terms, because if the term of the 
+                # lexicon is not mentioned at all, then we set its non-exist weight
+                for languageModelTerm in self.languageModel.languageModel:
+                    # Check if the language model term is composed of many synonyms, then search for ANY (OR) of them, not all
+                    termsSynonyms = languageModelTerm.split()#term.split(sep=None, maxsplit=_1)--> split with whitespaces
+                    for term in termsSynonyms:
+                        for textTerm in terms:                            
+                            if term in textTerm:
+                                if(self.libSVMFormat == 'true'):                            
+                                    if self.featureFormat != 'Binary':
+                                        itemFeatures[self.featuresNamesMap[languageModelTerm]] = self.languageModel.languageModel[languageModelTerm]['existWeight']
+                                    else:
+                                        itemFeatures[self.featuresNamesMap[languageModelTerm]] = 1
+                                else:
+                                    if self.featureFormat != 'Binary':
+                                        itemFeatures[languageModelTerm] = self.languageModel.languageModel[languageModelTerm]['existWeight']
+                                    else:
+                                        itemFeatures[languageModelTerm] = 1
+                                break
+                            else:
+                                if(self.libSVMFormat == 'true'):                            
+                                    if self.featureFormat != 'Binary':
+                                        itemFeatures[self.featuresNamesMap[languageModelTerm]] = self.languageModel.languageModel[languageModelTerm]['nonExistWeight']
+                                    else:
+                                        itemFeatures[self.featuresNamesMap[languageModelTerm]] = 1
+                                else:
+                                    if self.featureFormat != 'Binary':
+                                        itemFeatures[languageModelTerm] = -1*self.languageModel.languageModel[languageModelTerm]['nonExistWeight']
+                                    else:
+                                        itemFeatures[languageModelTerm] = -1                                
+                                                 
+
+          
+                #Extract Numbers features
+                if(self.considerNumbersFeatures == "true"):
+                    isNumberExists, numFeaturesInfo =  self.ExtractNumFeatures(text, self.ranges, self.numOfRanges)
+                    
+                    # Make sure a weight exists for isNumberExists in the language model
+                    if('isNumberExists' in self.languageModel.languageModel):
+                        # Update isNumberExists feature
+                        if not isNumberExists:                                        
+                            # No Number
+                            if(self.libSVMFormat == 'true'):
+                                itemFeatures[self.featuresNamesMap['isNumberExists']] = self.languageModel.languageModel['isNumberExists']['nonExistWeight']                        
+                            else:
+                                itemFeatures['isNumberExists'] = self.languageModel.languageModel['isNumberExists']['nonExistWeight']
+                        else:
+                            if(self.libSVMFormat == 'true'):
+                                itemFeatures[self.featuresNamesMap['isNumberExists']] = self.languageModel.languageModel['isNumberExists']['existWeight']
+                              
+                            else:
+                                itemFeatures['isNumberExists'] = self.languageModel.languageModel['isNumberExists']['existWeight']
+                    
+                    # Update isNumberInRange feature(s)
+                    # Make sure a weight exists for isNumberInRange in the language model
+                    if('isNumberInRange' in self.languageModel.languageModel):
+                        for i in range(0, self.numOfRanges):
+                            if numFeaturesInfo[i] != 0:
+                                if(self.libSVMFormat == 'true'):
+                                    itemFeatures[self.featuresNamesMap['numFeature'+str(i)]] = numFeaturesInfo[i] * self.languageModel.languageModel['isNumberInRange']['existWeight']
+                                else:
+                                    itemFeatures['numFeature'+str(i)] = numFeaturesInfo[i] * self.languageModel.languageModel['isNumberInRange']['existWeight']
+                            else:
+                                if(self.libSVMFormat == 'true'):
+                                    itemFeatures[self.featuresNamesMap['numFeature'+str(i)]] = numFeaturesInfo[i] * self.languageModel.languageModel['isNumberInRange']['nonExistWeight']
+                                else:
+                                    itemFeatures['numFeature'+str(i)] = numFeaturesInfo[i] * self.languageModel.languageModel['isNumberInRange']['nonExistWeight']
+                                                      
+                            
+                # if at least one relevant link exists, then set the corresponding places in the vector
+                if(self.considerLinksDB == "true"):
+                    for url in urls:
+                        if len(url) < 0:
+                            # No link
+                            if(self.libSVMFormat == 'true'):
+                                itemFeatures[self.featuresNamesMap['isLink']] = 0
+                                itemFeatures[self.featuresNamesMap['isLinkRelevant']] = 0
+    
+                            else:
+                                itemFeatures['isLink'] = 0
+                                itemFeatures['isLinkRelevant'] = 0
+                        else:
+                            if(self.libSVMFormat == 'true'):
+                                itemFeatures[self.featuresNamesMap['isLink']] = 1
+                                if url in self.linksDB:
+                                    if(self.linksDB[url] == 'relevant'):
+                                        itemFeatures[self.featuresNamesMap['isLinkRelevant']] = 1
+                                    else:
+                                        itemFeatures[self.featuresNamesMap['isLinkRelevant']] = 0
+                                else:
+                                    linkText = self.languageModel.ExtractLinkText(url)
+                                    if(linkText != ''):
+                                        text += linkText
+                                           
+                            else:
+                                itemFeatures['isLink'] = 1
+                                if url in self.linksDB:
+                                    if(self.linksDB[url] == 'relevant'):
+                                        itemFeatures['isLinkRelevant'] = 1
+                                    else:
+                                        itemFeatures['isLinkRelevant'] = 0
+                                else:
+                                    linkText = self.languageModel.ExtractLinkText(url)
+                                    if(linkText != ''):
+                                        text += linkText
+                             
+                # Add to global features list 
+                features = {}
+                #features['positive'] = 0
+                #features['negative'] = 0
+                features[1] = 0
+                features[2] = 0                                    
+                if(itemFeatures.__len__() != 0) :   
+                    for term in itemFeatures:
+                        if(itemFeatures[term] > 0):                            
+                            #features['positive'] = features['positive'] + itemFeatures[term]
+                            features[1] = features[1] + itemFeatures[term]
+                        elif (itemFeatures[term] < 0):
+                            #features['negative'] = features['negative'] + itemFeatures[term]
+                            features[2] = features[2] + itemFeatures[term]
+                    # Add to the global features list
+                    self.features.append(features)
+                    
+                    if(self.libSVMFormat == 'true'):
+                        if not item['label'] in self.labelsNamesMap:
+                            print('Incorrect label ' + item['label']) 
+                        if item['label'] == 'irirrelevant':
+                            item['label'] = 'irrelevant'
+                            print('Incorrect label ' + item['label'])
+                        try:
+                            self.labels.append(self.labelsNamesMap[item['label']])
+                        except KeyError:
+                            print('Incorrect label ' + item['label'])
+                    else:
+                        self.labels.append(item['label'])
+        
     # This function searches for any number in the format xx.yy OR xx,yy Engilsh or Arabic, excluding dates.
     # It also identifies the numbers in a given array of ranges, with each two consecutive entries are the upper and lower bounds of the ranges. Hence it takes the number of ranges. 
     # It takes as input:
